@@ -1,1 +1,95 @@
-blablabla
+     ////////////                                     ////////////
+    ////////////  ITSM (Madrid) simulator guide      ////////////
+   ////////////                                     ////////////
+  ////////////  With newer versions of ServiceNow  ////////////
+ ////////////          these tasks may vary       ////////////
+////////////                                     ////////////
+
+
+1. Create users
+	User Administration -> Users or User Administration -> Groups. Create users and add roles and add users to Groups, change manager for "Database" Group.
+
+2. Configure new call form
+	System Definition -> Plugins. Install "Service Desk Call". Open "Service Desk -> Calls -> New Call" (if not showing, try to logout and login). Config UI Policies. New. Set "Condition" to "Call Type | is | incident". Save. Add new UI Policy Actions for mandatory fields.
+
+3. Configure incident form
+	1) In Dictionary. Incident table. Set mandatory fields. Other which are not in Incident table, set via Dictionary Overrides on Task table.
+	2) New UI Policy
+
+4. Configure category and subcategory
+	1) Congfigure Choices. Add new choice.
+	2) 3) Show Choice List. Dictionary Entry Subcategory. Set "Dependent value" on your Telecom value. If "Subcategory" not visible, make "Subcategory" visible on a form.
+
+5. Configure state choice list
+	1) 2) Configuring Incident state Choices
+	3) 4) UI Actions. Add these lines to script: current.state = 4; current.update();
+
+6. Creating Problem from an Incident
+	1) Problem -> Administration -> Problem Properties. Problem Created from Incident Properties. Add "assignment_group".
+
+7. Configure assignment rules
+	1) On incident form click on three dots in top right corner. "Toggle Template Bar". Create new teplate. Add  "Assignment group" to "Service Desk". On "Record Producer" click "Generated Record Data" tab and fill Template field.
+	2) System Policy -> Assignment Lookup Rules. New.
+
+8. Configure priority
+	1) Configure Priority Choices. Remove "Planning" and in "Dictionary". Change "Dictionary Overrides" default value for "task" table "priority" column on "incident" table.
+	2) Override Default value for of "work_notes" Incident table in Dicrionary.
+
+9. Configure incident notifications
+	1) 2) System Notification -> Notifications. Open "Incident opened for me". First set "Mandatory" field visible on the form. Then set it to TRUE.
+	3) System Notification -> Notification Email Scripts. Open "incident_has_been_opened". Add code: template.print(gs.getMessage('An incident has been opened by {0}.', '${opened_by}'));
+
+10. Close resolved incidents
+	System Properties -> System. "Number of days (integer)..." set to 10.
+
+11. Configure surveys
+	Survey -> View Surveys. Select survey. Add new "Trigger Conditions" on incident table. Condition is "State | changes to | Closed". Set "User field" to "Caller".
+
+12. Configure response SLA
+	SLA -> SLA Definitions. All "Active" definitions set to FALSE. New. Set "Duration" to 15 mins, "Schedule" to "8-5 weekdays". Start conditions are "State | is | New" and "Priority | is | 1 - Critical". Stop Condition is "Assigned to | is not empty".
+
+13. Close/Resolve Problem
+	Set "SNC - ITIL - Resolve Related Incidents" business rule "Active" field to TRUE
+
+14. Create Change Process users
+	Similar to 1. task.
+
+15. Configure change management form
+	Open any Change and create new UI Policy. Condition is "State | is not one of | New, Canceled". Save. Add new UI Policy Actions for fields. Set "Mandatory" TRUE.
+
+16. Configure Risk Conditions
+	1) 2) 3) Change -> Risk Conditions. Edit Scripts values if needed. Set Active FALSE if needed.
+	4) 5) See "Insufficient lead time" Risk Condition and copyPasta or edit conditions plus add condition "Type | is | Standard" / "Type | is | Normal".
+
+17.	Configure Maintenance and Black out Schedule
+	1) Change -> Schedules -> Maintenance Schedules. New. Set "Source" as "CI Class". Set conditions "Class | is | Network OR...". Save. New "Schedule Entries". Set "When" to 3rd Saturday. "Monthly type" to "Day of the Week".
+	2) Change -> Schedules -> Blackout Schedules. New. Set "Source" as "CI Class". New "Schedule Entries" similar to Maintenance Schedules... // if there is some problem with overlapping try to set "To" date to something else than end of the year
+
+18.	Emergency change requests
+	1) System Definition -> Interceptors. Change Request. Set "Direct to Emergency Change" to FALSE.
+	2) Open incident UI Actions. "Create Emergency Change" UI Action. Edit "Condition" field to "...&& (current.priority == 1 || curernt.priority == 2 )"
+
+19.	Creating a change request from Problem
+	Open any problem. "Configure Choices" for "State" field. Add "Pending change", set value to something unique like "37". Then edit UI Actions "Create Normal Change" and "Create Emergency Change" scripts. Add code: current.state = 37; before "current.update();" line. // Simulator Task will be validated but when you try functionality itself it will probably not work. Not sure why ¯\_(*-*)_/¯
+
+20. Change Manager Assessment - Normal Change
+	Workflow -> Workflow Editor. Open "Change Request - Normal" workflow. Checkout workflow from context menu. Add "Approval - Group" activity from "Core" tab. Add "Change Management" to "Groups". Delete connection between "Requested" and "Technical approvals" and slide "Initial Review" between "Requested" and "Technical Approvals" / "Rejection notification". Then hit "Publish" for workflow.
+
+21.?Change Authorization - Emergency Change // this task is on nowlearning.service-now.com simulator only
+	Workflow -> Workflow Editor. Open "Open Change Request - Emergency" workflow. Checkout workflow from context menu. Change -> Change Policy -> Approval Definitions. Edit "CAB Approval".  Set "Group" as "eCAB Approval" and create or hit "Insert and Stay" Change Approval Definition lfrom context menu same as "CAB Approval" but change "Group" to "Change Management" (you should have 2 Change Approval Definitions with the same name but with different "Group" fields). Then publish workflow.
+
+21. Post implementation Review - High risk Change 
+	Workflow -> Workflow Editor. Open "Change Request - Normal" workflow. Checkout workflow from context menu. Add "Create Task" from "Tasks" activities between "Change moves to Review" and "End". Choose any name and Set "Assigned to" to "ChgMgr..." // on .service-now.com set "Fulfillment group" as "Change Manager".
+
+22.	Configure Standard Change catalog
+	Change -> Administration -> Standard Change Properties. Add default value for risk in "Default Change Request values" section. From "Restricted Change Request values" remove "Risk". Add "Risk" to "Read-only fields".
+
+23. Copy Change Request attributes 
+	Change -> Change Properties. Edit "Enable Copy Change feature" to "category,cmdb_ci,priority,impact,type,assignment_group,short_description,description,implementation_plan,backout_plan,test_plan"
+	Edit "Copy attachments from originating change" to "cmdb_ci,priority,assignment_group,short_description,description".
+	
+24. Configure Security Rules
+	Elevate role to "security_admin" (if not possible just logout and login as "admin" with your password). System Security -> Access Control (ACL). New. "Operation" set to "write". "Name" set to "Change Request [change_request] | -- None --". Set "Condition" when "State | is not | Closed".
+
+25.	Configure change notifications
+	System Notification -> Notifications. Set "Active" to FALSE for given notifications. For given notifications edit form layout to show "Mandatory" field and set it to TRUE.
